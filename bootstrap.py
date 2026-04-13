@@ -14,8 +14,12 @@ USERNAME = os.environ.get("USERNAME") or os.environ.get("USER")
 HOME = pathlib.Path.home()
 DROPBOX = HOME / "Dropbox" / "00.claudedotfile"
 
+# Add more symlinks here as needed
+# (target_in_dropbox, link_in_system)
 SYMLINKS = [
     (DROPBOX / ".claude" / "CLAUDE.md", HOME / ".claude" / "CLAUDE.md"),
+    # Global skills — uncomment when skills are added to dotfiles
+    # (DROPBOX / ".claude" / "skills" / "fp", HOME / ".claude" / "skills" / "fp"),
 ]
 
 
@@ -33,8 +37,27 @@ def create_symlink(target: pathlib.Path, link: pathlib.Path) -> None:
     print(f"✓ {link} → {target}")
 
 
+def verify_symlinks() -> None:
+    print("\nVerifying symlinks:")
+    all_ok = True
+    for target, link in SYMLINKS:
+        if link.is_symlink() and link.resolve() == target.resolve():
+            print(f"  ✓ {link.name} → {target}")
+        elif link.exists():
+            print(f"  ✗ {link.name} exists but is NOT a symlink")
+            all_ok = False
+        else:
+            print(f"  ✗ {link.name} missing")
+            all_ok = False
+
+    if all_ok:
+        print("\nAll good.")
+    else:
+        print("\nSome symlinks are broken. Re-run bootstrap.")
+
+
 if __name__ == "__main__":
     print(f"Bootstrap dotfiles for: {USERNAME}\n")
     for target, link in SYMLINKS:
         create_symlink(target, link)
-    print("\nDone.")
+    verify_symlinks()
