@@ -39,6 +39,7 @@ rl   = d.get('rate_limits', {})
 fh   = rl.get('five_hour', {})
 ws   = d.get('workspace', {})
 mdl  = d.get('model', {})
+cst  = d.get('cost', {})
 
 project_dir   = g(ws, 'project_dir')
 used_pct      = g(cw, 'used_percentage')
@@ -53,6 +54,7 @@ quota_reset   = g(fh, 'resets_at')
 model_name    = g(mdl,'display_name') or 'Claude'
 session_name  = g(d,  'session_name')
 session_id    = g(d,  'session_id')
+cost_usd      = g(cst, 'total_cost_usd', default='')
 
 print(f'PY_PROJECT_DIR={repr(project_dir)}')
 print(f'PY_USED_PCT={repr(used_pct)}')
@@ -67,6 +69,7 @@ print(f'PY_QUOTA_RESET={repr(quota_reset)}')
 print(f'PY_MODEL={repr(model_name)}')
 print(f'PY_SESSION_NAME={repr(session_name)}')
 print(f'PY_SESSION_ID={repr(session_id)}')
+print(f'PY_COST_USD={repr(cost_usd)}')
 " 2>/dev/null)"
 
 # --- Git 分支 ---
@@ -161,7 +164,19 @@ line1=""
 [ -n "$git_branch" ] && line1="${git_status_color}${BOLD} ${git_branch}${RESET}  "
 line1="${line1}${ctx_display}  ${CYAN}${PY_MODEL}${RESET}  ${DIM}[${session_label}]${RESET}"
 
-# --- LINE 2: quota / cache / tokens ---
-line2="${quota_display}   ${cache_display}   ${MAGENTA}tokens: ${tok_display}${RESET}"
+# --- Session cost ---
+cost_display="${DIM}cost: -${RESET}"
+if [ -n "$PY_COST_USD" ] && [ "$PY_COST_USD" != "0.0" ] && [ "$PY_COST_USD" != "0" ]; then
+    cost_display="${CYAN}cost: \$$(printf "%.4f" "$PY_COST_USD")${RESET}"
+fi
 
-printf "%b\n%b\n" "${line1}" "${line2}"
+# --- LINE 2: quota / cache / tokens / cost ---
+line2="${quota_display}   ${cache_display}   ${MAGENTA}tokens: ${tok_display}${RESET}   ${cost_display}"
+
+line3=$(echo "$input" | ccusage statusline 2>/dev/null || true)
+
+if [ -n "$line3" ]; then
+    printf "%b\n%b\n%b\n" "${line1}" "${line2}" "${line3}"
+else
+    printf "%b\n%b\n" "${line1}" "${line2}"
+fi

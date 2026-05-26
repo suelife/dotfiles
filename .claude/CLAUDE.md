@@ -37,6 +37,7 @@
 - `TaskCreate`（session task）**只能用於當次對話的 planning**，對話結束後即消失
 - **對話結束前**，若有未完成的 session task，必須詢問使用者：「要建到 Notion 還是放棄？」
 - 必填欄位：`Name`（命名規則）、`Status: To do`、`Type`。`Energy` 由使用者自行填寫，不代填
+- **任務完成時立刻 PATCH Notion status → Done**，不等到對話結束，不說「之後更新」
 
 ### Task 命名規則
 格式：`具體動詞＋對象（脈絡）`，Type 用欄位設定，不放標題。
@@ -59,6 +60,16 @@
 - **Status 選項**：`To do` / `In progress` / `Done`
 - **Energy 選項**：`High` / `Medium` / `Low`（使用者自填，Claude 不代填）
 - **必填欄位**：`Name`、`Status`、`Type`
+
+## Session Learning Reminder
+
+**每一個回應的結尾**都加上這一行：
+
+> 💡 有需要 `@learn` 嗎？
+
+不例外，不判斷，不過濾。讓使用者自己決定要不要觸發。
+
+---
 
 ## Git Commit Convention
 - Format: Conventional Commits — `type(scope): subject`
