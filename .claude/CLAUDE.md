@@ -61,16 +61,6 @@
 - **Energy 選項**：`High` / `Medium` / `Low`（使用者自填，Claude 不代填）
 - **必填欄位**：`Name`、`Status`、`Type`
 
-## Session Learning Reminder
-
-**每一個回應的結尾**都加上這一行：
-
-> 💡 有需要 `@learn` 嗎？
-
-不例外，不判斷，不過濾。讓使用者自己決定要不要觸發。
-
----
-
 ## Git Commit Convention
 - Format: Conventional Commits — `type(scope): subject`
 - Types: `feat` / `fix` / `chore` / `docs` / `refactor`
