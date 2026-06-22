@@ -13,8 +13,8 @@
 - Do not delete files without explicit instruction.
 
 ## Fact Verification — CRITICAL, NO EXCEPTIONS
-- **WebFetch and WebSearch summaries are NOT facts.** They are model-generated and frequently wrong, incomplete, or misleading.
-- **Never present a search/fetch summary as a confirmed fact.** Always verify with a primary source before stating anything as true.
+- **Any output that describes something else is not the thing itself**; it may be stale, wrong, incomplete, or misleading, so verify against the primary source it describes.
+- **Never present such a claim as a confirmed fact.** Always verify with a primary source before stating anything as true.
 - Verification methods (use the appropriate one):
   - Package/repo exists → `gh api repos/owner/name` or direct URL check
   - CLI flag or default behavior → read official docs directly, not a summary
@@ -30,36 +30,19 @@
 - Never commit `.env`, credentials, or secret files.
 - If unexpected state is found (unknown files, branches, config): investigate before overwriting.
 
+## Investigation Before Action — CRITICAL
+**Any file removal, gitignore, deprecation, or config change requires prior investigation:**
+1. Who generates this file? (which script / hook / tool)
+2. Who reads / consumes it? (grep all referencing files)
+3. What breaks if it disappears?
+Only after answering all three: propose the action, explain the reasoning, then execute.
+**Past failure (2026-05-13):** gitignored `health/report.json` without checking that `actions_review.py` depends on it. The decision happened to be correct, but the process was wrong — acted first, investigated after being challenged. This is not acceptable.
+
 ## Task Management
-
-### 唯一 task 系統：Notion Actions Engine
-- **跨 session、跨專案的任務一律建在 Notion Actions Engine**（DB ID: `2f021f4e-14f0-8041-9289-e27da0f79ef3`）
-- `TaskCreate`（session task）**只能用於當次對話的 planning**，對話結束後即消失
-- **對話結束前**，若有未完成的 session task，必須詢問使用者：「要建到 Notion 還是放棄？」
-- 必填欄位：`Name`（命名規則）、`Status: To do`、`Type`。`Energy` 由使用者自行填寫，不代填
-- **任務完成時立刻 PATCH Notion status → Done**，不等到對話結束，不說「之後更新」
-
-### Task 命名規則
-格式：`具體動詞＋對象（脈絡）`，Type 用欄位設定，不放標題。
-
-- **動詞**：具體可執行（調查、修復、建立、確認、規劃、申報…），不用「處理」、「弄一下」等模糊詞
-- **對象**：明確指出做什麼
-- **脈絡**：括號選填，說明觸發原因或所屬系統
-
-範例：
-```
-調查並修復 NotebookLM 頻繁 session timeout   → Type: Dev
-確認供應商主檔幣別欄位（BPM 外幣功能）        → Type: Work
-申報遺產稅                                  → Type: Life
-```
-
-### Actions Engine Schema（已驗證，勿動態查詢）
-- **MCP data_source_id**：`2f021f4e-14f0-8062-ac82-000b46f8db2e`
-- **REST database_id**：`2f021f4e-14f0-8041-9289-e27da0f79ef3`
-- **Type 選項**：`Idea` / `Life` / `Work` / `Dev`
-- **Status 選項**：`To do` / `In progress` / `Done`
-- **Energy 選項**：`High` / `Medium` / `Low`（使用者自填，Claude 不代填）
-- **必填欄位**：`Name`、`Status`、`Type`
+- 跨 session、跨專案的任務一律記到 Notion Actions Engine，不塞進對話；session task（TaskCreate）只用於當次 planning，結束即棄。
+- 命名：具體動詞＋對象（脈絡），Type 用欄位不放標題。
+- 任務完成立刻標 Done，不拖到對話結束。
+- 完整 schema／DB ID／對話式 CRUD 協定見 SecondBrain 專案 CLAUDE.md（單一真實來源，避免雙處 drift）。
 
 ## Git Commit Convention
 - Format: Conventional Commits — `type(scope): subject`
