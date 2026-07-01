@@ -41,8 +41,6 @@ SYMLINKS = [
     (DROPBOX / ".claude" / "CLAUDE.md",                HOME / ".claude" / "CLAUDE.md"),
     (DROPBOX / "statusline.sh",                         HOME / ".claude" / "statusline.sh"),
     (DROPBOX / ".claude" / "skills" / "fp",             HOME / ".claude" / "skills" / "fp"),
-    (DROPBOX / ".claude" / "skills" / "wiki-note",      HOME / ".claude" / "skills" / "wiki-note"),
-    (DROPBOX / ".claude" / "skills" / "wiki-query",     HOME / ".claude" / "skills" / "wiki-query"),
     (DROPBOX / ".claude" / "skills" / "notebooklm",     HOME / ".claude" / "skills" / "notebooklm"),
 ]
 

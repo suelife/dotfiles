@@ -50,16 +50,6 @@
 - **路徑**：`.claude/skills/fp/`
 - **來源**：symlink → `claudedotfile/.claude/skills/fp`
 
-### wiki-note
-- **路徑**：`.claude/skills/wiki-note/`
-- **來源**：symlink → `claudedotfile/.claude/skills/wiki-note`
-- **用途**：從任何 project 快速寫一筆記錄到 SecondBrain wiki
-
-### wiki-query
-- **路徑**：`.claude/skills/wiki-query/`
-- **來源**：symlink → `claudedotfile/.claude/skills/wiki-query`
-- **用途**：從任何 project 查詢 SecondBrain wiki，用 FTS5 搜尋後合成答案
-
 ---
 
 ## Bootstrap Integration
