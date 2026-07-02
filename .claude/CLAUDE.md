@@ -50,3 +50,6 @@ Only after answering all three: propose the action, explain the reasoning, then 
 - Keep subject under 72 characters.
 - Body: explain **why**, not what.
 - Never amend published commits; create a new one instead.
+
+## Reference Docs (按需查閱,非常駐)
+- 要裝/用 **spec-kit + superpowers + bridge**（spec 先行→TDD 開發）時，參考 `00.claudedotfile/references/speckit-superpowers-install.md`（含 Windows cp950 與 Dropbox 鎖檔兩個必踩雷的對策）。
