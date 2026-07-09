@@ -53,3 +53,9 @@ Only after answering all three: propose the action, explain the reasoning, then 
 
 ## Reference Docs (按需查閱,非常駐)
 - 要裝/用 **spec-kit + superpowers + bridge**（spec 先行→TDD 開發）時，參考 `00.claudedotfile/references/speckit-superpowers-install.md`（含 Windows cp950 與 Dropbox 鎖檔兩個必踩雷的對策）。
+
+## 視覺化圖表風格
+- 需要畫**結構性圖**時（限系統架構／流程／資料模型／領域地圖，見 `visualization-scope` memory），一律套 `00.claudedotfile/references/diagram-style.md` 的視覺規格（色彩 token／字體角色／元件詞彙／設計原則），**不臨場自訂**。
+- 交付走 **HTML 檔＋Artifact**（此環境 `show_widget` 無效、CSP 內聯一切、禁 CDN／外部字型）；決策清單／審查摘要／metrics 速覽（commits・測試數）／一般回覆一律**純文字**。
+- 該規格元件分「基元（恆用）」與「可選敘事裝置（ecg／heart／loop／run，僅內容真有核心／循環／指令時才用）」；**預設只用基元**，不要把來源圖的敘事家具原封搬到每張圖（那會製造 AI 味）。
+- accent 用靛藍是**刻意**與 app 青綠 UI 區隔（架構圖非產品截圖）；細節見規格。此段只觸發風格，「要不要畫」的界線仍由 `visualization-scope` memory 決定。
