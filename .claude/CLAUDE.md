@@ -44,6 +44,15 @@ Only after answering all three: propose the action, explain the reasoning, then 
 - 任務完成立刻標 Done，不拖到對話結束。
 - 完整 schema／DB ID／對話式 CRUD 協定見 SecondBrain 專案 CLAUDE.md（單一真實來源，避免雙處 drift）。
 
+## Subagent／Workflow 派工（分級指定模型，別全用繼承的主模型）
+派 subagent／Workflow 時**依任務分級指定 `model`**（準則：用能勝任的**最小**模型，省成本、加速）；不要全留預設＝繼承主模型（拿 Opus 跑機械活是浪費）。`/workflows` UI 不顯示 model，故**撒 workflow 時要在訊息裡標明每段用哪個**，讓使用者看得到。
+- **Haiku**：純機械、規格明確、1–2 檔（文案/用詞替換、regen 型別、跑測試回報、樣板小元件、簡單接線）
+- **Sonnet**：標準功能實作、多檔整合、照 pattern 擴充——implementer 預設
+- **Opus**：migration／跨切面、架構／設計、規劃／研究／synthesis、**對抗式/嚴格審查（品質關卡不降級）**
+- **Fable**：定位未確認，先不用；要用先查證
+- 第二槓桿 `effort`（low→max）：機械段 low、難審查段 high/xhigh。
+- 預設配比：implementer=Sonnet（機械降 Haiku、難的升 Opus）｜審查=Opus｜fixer 同 implementer｜規劃/研究/critic 型 workflow=Opus。
+
 ## Git Commit Convention
 - Format: Conventional Commits — `type(scope): subject`
 - Types: `feat` / `fix` / `chore` / `docs` / `refactor`
