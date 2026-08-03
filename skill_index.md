@@ -50,6 +50,14 @@
 - **路徑**：`.claude/skills/fp/`
 - **來源**：symlink → `claudedotfile/.claude/skills/fp`
 
+### verify (驗證階梯)
+- **路徑**：`.claude/skills/verify/`
+- **來源**：symlink → `claudedotfile/.claude/skills/verify`
+- **何時用**：交付前要回答「這批東西驗到什麼程度」「可以部署了嗎」，或被問「你有沒有真的測過」
+- **重點**：強制區分自動化測試／開發區實跑／正式站驗證三層，禁止把第一層講成「完成」；
+  附八條踩過的陷阱（環境跑舊 code、測試假通過、退化案例、單次掃描假陰性、
+  沒查證就宣稱安全、本機連容器 DB 極慢、只有瀏覽器看得到的問題、值域擴充漏接消費端）
+
 ---
 
 ## Bootstrap Integration

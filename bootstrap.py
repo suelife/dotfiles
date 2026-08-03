@@ -42,6 +42,7 @@ SYMLINKS = [
     (DROPBOX / "statusline.sh",                         HOME / ".claude" / "statusline.sh"),
     (DROPBOX / ".claude" / "skills" / "fp",             HOME / ".claude" / "skills" / "fp"),
     (DROPBOX / ".claude" / "skills" / "notebooklm",     HOME / ".claude" / "skills" / "notebooklm"),
+    (DROPBOX / ".claude" / "skills" / "verify",         HOME / ".claude" / "skills" / "verify"),
 ]
 
 # Agents directory: sync all .md files from dotfiles/agents/ → ~/.claude/agents/
@@ -69,9 +70,33 @@ def _session_start_hook_value():
     script = str(HOME / "Dropbox" / "00.SecondBrain" / "scripts" / "check_inbox.py").replace("\\", "/")
     return [{"hooks": [{"type": "command", "command": f'python "{script}"'}]}]
 
+def _post_tool_use_hook_value():
+    """引用檢查：交付物裡引用了沒開過的檔案就回報。
+
+    settings.json 本身刻意不進版控（含機器特定的絕對路徑），但註冊這件事要版控，
+    否則換機就沒了——腳本在 repo 裡，這裡負責把它接上。
+    """
+    hooks = HOME / "Dropbox" / "00.claudedotfile" / "hooks"
+    log_read = str(hooks / "log_read.py")
+    check = str(hooks / "check_citations.py")
+    return [
+        {
+            "matcher": "Read|Write|Edit",
+            "hooks": [{"type": "command", "command": "python",
+                       "args": [log_read], "timeout": 10}],
+        },
+        {
+            "matcher": "Write|Edit",
+            "hooks": [{"type": "command", "command": "python",
+                       "args": [check], "timeout": 15,
+                       "statusMessage": "檢查引用"}],
+        },
+    ]
+
 NESTED_PATCHES = {
     ("permissions", "additionalDirectories"): _additional_dirs_value,
     ("hooks", "SessionStart"):                _session_start_hook_value,
+    ("hooks", "PostToolUse"):                 _post_tool_use_hook_value,
 }
 
 
