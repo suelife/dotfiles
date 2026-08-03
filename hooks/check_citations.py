@@ -18,8 +18,14 @@ STATE_DIR = os.path.expanduser("~/.claude/hook-state")
 DELIVERABLE_EXT = (".md", ".html")
 
 # 要有副檔名才算引用，否則 "10:30" 這種時間、"localhost:8000" 都會中。
-CITATION = re.compile(r"([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]{1,10}):(\d+)")
+# 副檔名必須「以字母開頭」：否則 127.0.0.1:8000 會被拆成 "127.0.0" + ".1"
+# 當成檔案（第一次實戰就誤判了這個）。
+CITATION = re.compile(r"([A-Za-z0-9_./\\-]+\.[A-Za-z][A-Za-z0-9]{0,9}):(\d+)")
 URL = re.compile(r"https?://\S+")
+# 沒有斜線又以常見 TLD 結尾的，是網域不是檔案（example.com:443）。
+HOSTLIKE = re.compile(
+    r"^[^/\\]+\.(com|net|org|io|dev|app|cc|tw|co|ai|me|sh|xyz|test|local)$", re.I
+)
 
 
 def norm(p):
@@ -64,7 +70,7 @@ def main():
     missing, unread = [], []
     seen = set()
     for cited, _line in CITATION.findall(URL.sub("", text)):
-        if cited in seen:
+        if cited in seen or HOSTLIKE.match(cited):
             continue
         seen.add(cited)
         n = norm(cited)

@@ -55,6 +55,8 @@ content = (
     "missing:  backend/app/routers/asks.py:372 \n"
     "url 不該中: https://example.com/a.js:9 \n"
     "時間不該中: 10:30 \n"
+    "IP 不該中:  127.0.0.1:8000 \n"
+    "網域不該中: panpapa.cc:443 example.com:8080 \n"
 )
 rc, out, err = run("check_citations.py", {
     "session_id": SID, "cwd": REPO, "tool_name": "Write",
@@ -71,6 +73,9 @@ if out.strip().startswith("{"):
     check("不存在的有報且歸類正確", "no such file" in ctx and "asks.py" in ctx, ctx)
     check("URL 沒被誤抓", "example.com" not in ctx and "a.js" not in ctx, ctx)
     check("時間沒被誤抓", "10:30" not in ctx, ctx)
+    # 第一次實戰就誤判 127.0.0.1:8000（"127.0.0" + ".1" 剛好像檔名加副檔名）
+    check("IP 沒被誤抓", "127.0.0" not in ctx, ctx)
+    check("網域沒被誤抓", "panpapa" not in ctx and "example.com" not in ctx, ctx)
     check("有給使用者的訊息", o.get("systemMessage", "").startswith("引用檢查"), repr(o.get("systemMessage")))
 
 print("3) Edit 走 new_string 欄位（跟 Write 的 content 不同名）")
