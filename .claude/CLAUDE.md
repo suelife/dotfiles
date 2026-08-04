@@ -23,6 +23,16 @@
 - **Past failures**: Claimed MCP is more token-efficient (wrong). Claimed Tool Search is enabled by default (wrong — only triggers above 10% context threshold). Both were read from summaries without verification.
 - **WebFetch 結構分析失敗（2026-04-15）**：WebFetch Karpathy LLM Wiki gist 後，直接採用模型摘要回報「缺少 `syntheses/` 目錄」，未對照原文驗證。第二次 fetch 才確認原文根本沒有此規範。**正確流程：fetch 後必須針對具體聲明再次 fetch 原文確認，不可直接引用摘要內容。**
 
+## 本機環境事實（Windows；會咬到所有用 Docker 的專案）
+- **一律用 `127.0.0.1`，永遠不要用 `localhost`**——連線字串、proxy target、健康檢查、
+  測試設定，全部。Windows 先把 `localhost` 解析成 IPv6 `::1`，而 Docker 通常綁純 IPv4，
+  每建一條連線都要撞一次才 fallback。
+- 實測代價（2026-08-04，pulse）：Postgres **130 秒／連線**、HTTP 0.357 秒／請求；
+  換成 `127.0.0.1` 都降到 0.005 秒等級。整套 pytest 從 473 秒變 74 秒。
+- **推論**：碰到「這個環境就是慢」，先量 `localhost` vs `127.0.0.1` 再下結論。
+  逾時型的整齊鈍化（30／60／130 秒）幾乎都是 DNS 或連線 fallback，不是頻寬也不是碟。
+  我曾把它當成環境宿命寫進 skill 當經驗傳下去——**「只能繞過」這種結論本身就該被懷疑。**
+
 ## Operation Safety
 - Before any destructive operation (rm, force push, reset --hard, drop table, overwrite uncommitted changes): **report the plan and wait for confirmation**.
 - Never skip git hooks (`--no-verify`) unless explicitly asked.
