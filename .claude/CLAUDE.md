@@ -23,15 +23,32 @@
 - **Past failures**: Claimed MCP is more token-efficient (wrong). Claimed Tool Search is enabled by default (wrong — only triggers above 10% context threshold). Both were read from summaries without verification.
 - **WebFetch 結構分析失敗（2026-04-15）**：WebFetch Karpathy LLM Wiki gist 後，直接採用模型摘要回報「缺少 `syntheses/` 目錄」，未對照原文驗證。第二次 fetch 才確認原文根本沒有此規範。**正確流程：fetch 後必須針對具體聲明再次 fetch 原文確認，不可直接引用摘要內容。**
 
-## 本機環境事實（Windows；會咬到所有用 Docker 的專案）
-- **一律用 `127.0.0.1`，永遠不要用 `localhost`**——連線字串、proxy target、健康檢查、
-  測試設定，全部。Windows 先把 `localhost` 解析成 IPv6 `::1`，而 Docker 通常綁純 IPv4，
-  每建一條連線都要撞一次才 fallback。
-- 實測代價（2026-08-04，pulse）：Postgres **130 秒／連線**、HTTP 0.357 秒／請求；
-  換成 `127.0.0.1` 都降到 0.005 秒等級。整套 pytest 從 473 秒變 74 秒。
-- **推論**：碰到「這個環境就是慢」，先量 `localhost` vs `127.0.0.1` 再下結論。
-  逾時型的整齊鈍化（30／60／130 秒）幾乎都是 DNS 或連線 fallback，不是頻寬也不是碟。
-  我曾把它當成環境宿命寫進 skill 當經驗傳下去——**「只能繞過」這種結論本身就該被懷疑。**
+## 本機環境事實（Windows）
+
+**症狀 → 診斷 → 處置，不是一條無條件的規則。**
+
+- **症狀**：本機連線出現**逾時型的整齊鈍化**（每次都是 30／60／130 秒這種漂亮數字）。
+  Windows 把 `localhost` 先解析成 IPv6 `::1`，若對方只綁 IPv4，每條連線都要撞一次
+  才 fallback。實測（2026-08-04，pulse＋Docker）：Postgres **130 秒／連線**、
+  HTTP 0.357 秒／請求；改 `127.0.0.1` 後都是 0.005 秒等級，整套 pytest 473 秒 → 74 秒。
+- **診斷**：量兩個變體再下結論。逾時型鈍化幾乎都是 DNS 或連線 fallback，
+  不是頻寬也不是碟。我曾把它當環境宿命寫進 skill 傳下去——
+  **「只能繞過」這種結論本身就該被懷疑。**
+- **處置**：只改**你去撥的連線目標**——DB 連線字串、proxy target、健康檢查、
+  測試設定。改成對方實際綁的那個位址（Docker 通常是 `127.0.0.1`）。
+
+**不要無差別替換。** 這兩個名字在下列場合**不等價**，改了會壞：
+
+| 場合 | 為什麼不能亂改 |
+|---|---|
+| 對方只綁 `::1` | **方向相反，改了直接連不上。** 實測本機：Node `listen(port,'localhost')` 綁到 `::1`（IPv6-only），此時 `127.0.0.1` 是 `ECONNREFUSED`。Node 起的 dev server 預設 host 若是 `localhost` 就會落在這格 |
+| cookie／session | 瀏覽器以 host 為 key，換名字等於換 origin，登入狀態不會跟著走 |
+| OAuth redirect URI | 多數供應商逐字比對，註冊 `localhost` 就不能用 `127.0.0.1` 進來 |
+| TLS 憑證 SAN | 憑證簽給 `localhost` 的，用 IP 連會驗不過 |
+| 使用者看得到的 URL | 例：pulse 的 `app_base_url` 拿去組**驗證信、密碼重設信**的連結——那是給人點的，不是給程式撥的 |
+
+**沒用 Docker 的專案多半整段用不到**：本機直跑的服務通常雙棧監聽，`localhost` 不會慢。
+先量，慢才改，而且只改撥號的那一端。
 
 ## Operation Safety
 - Before any destructive operation (rm, force push, reset --hard, drop table, overwrite uncommitted changes): **report the plan and wait for confirmation**.
