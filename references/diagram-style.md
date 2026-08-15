@@ -12,6 +12,66 @@
 1. **本環境 `show_widget` 無效** → 不要用它出圖。改走：**Write 寫一個單一 `.html` 檔** → 呼叫 **Artifact 工具**發佈成 claude.ai 網頁。同檔重發佈用**同一 file_path** 才更新同一 URL。
 2. **檔案只寫內容、不寫外殼** → 發佈時系統自動包 `<!doctype html><head>…</head><body>`。檔案**直接**從 `<title>`＋`<style>`＋內容開始，**不要**自己寫 `<!DOCTYPE>`／`<html>`／`<head>`／`<body>`。
 
+## 記法鐵律（2026-08-15 立；成因是被打回兩次）
+
+> **這份文件管「視覺」，不管「記法」。** 下面的色彩 token、字體角色、元件詞彙，
+> 全部是給**頁面外框**（標題、說明、圖例、註解、表格）用的。
+> **圖本體一律用 Mermaid 的標準圖種**，不要用本文件的 `.node`／`.layer` 去排出「看起來像圖的清單」。
+
+### 1. 用 Mermaid，不要用 CSS 排方塊
+
+| 要畫的東西 | 用這個 |
+|---|---|
+| 系統架構、模組相依、判斷分支、路由 | `flowchart TB`（**優先 TB**，`LR` 容易長成超寬橫鏈） |
+| 誰對誰做了什麼、有先後順序 | `sequenceDiagram`（有生命線、`alt/else` 框、`autonumber`） |
+| 資料模型 | `erDiagram`（鳥爪基數） |
+| 狀態與轉換 | `stateDiagram-v2` |
+
+Artifact **原生支援 Mermaid**（HTML 用 `<pre class="mermaid">`），不需要 CDN，不違反 CSP。
+
+*為什麼立這條*：2026-08-15 我用本文件的 CSS 元件詞彙畫了 10 張「架構圖」，
+全部是垂直堆疊的方塊加 `▼` 文字箭頭——**沒有真正的連線**，看不出誰連到誰；
+「時序圖」沒有生命線也沒有 alt 框。Wind 的原話：「架構圖跟流程圖，網路上是這樣的?」
+**我把視覺風格當成了圖的文法。**
+
+### 2. 絕不縮放——這是「看不清楚」的唯一成因
+
+三個開關缺一不可：
+
+```
+%%{init: {"flowchart":{"useMaxWidth":false},"sequence":{"useMaxWidth":false},
+          "er":{"useMaxWidth":false},"state":{"useMaxWidth":false},
+          "theme":"base","themeVariables":{"fontSize":"16px"}}}%%
+```
+```css
+.mmd{overflow-x:auto;}                    /* 太寬 → 容器自己捲 */
+.mmd svg{max-width:none !important;height:auto;}   /* 不准縮小去配合容器 */
+```
+
+**`max-width:100%` 是陷阱**：它讓 SVG 縮小去配合容器，而不是讓容器捲動。
+一張原生 3664px 的 ERD 塞進 1000px 容器＝**0.27×**＝文字 4px；手機 347px＝**0.09×**。
+Wind 的原話：「根本看不清楚是三小」。
+
+**寧可橫捲，不要縮小。** 頁面本體不橫捲，但單張圖的框可以。
+
+### 3. 一張圖東西要少
+
+- **拆**：一張 ERD 畫 16 張表、162 個標籤＝不可讀。按叢集拆成 3 張，且**只畫關聯不塞欄位**（欄位放圖下方的表格）。長時序圖拆成前半／後半。
+- **標籤短**：節點名 ≤ 12 字，`<br/>` 頂多一行。**細節寫在圖下方的文字**，不要塞進方塊——塞進去只會把圖撐寬。
+- 目標：原生寬度 ≤ 950px（桌面 1:1 剛好放得下）。
+
+### 4. 交出去之前一定要量
+
+**不要用眼睛判斷「應該可以了」。** 用真的 mermaid 跑一次，量兩個數字：
+
+```js
+const {svg} = await mermaid.render(id, src);   // 先確認語法過
+const scale = renderedWidth / viewBox.width;   // 必須 = 1
+const effectiveFont = declaredFontSize * scale; // 必須 ≥ 12px
+```
+
+語法錯一個字整張圖就掛；縮放倍率 <1 就是在把字縮小。**這兩個數字都要在交付前印出來看過。**
+
 ## CSP 鐵律（一切內聯，禁外部主機）
 
 CSP 封鎖所有外部請求——**無 CDN script、無 remote stylesheet、無 webfont、無 remote image、無 fetch**。因此：
@@ -105,6 +165,11 @@ CSP 封鎖所有外部請求——**無 CDN script、無 remote stylesheet、無
 ---
 
 ## 版面元件詞彙
+
+> **範圍限定（2026-08-15 補）**：以下元件是給**頁面外框**用的——圖例帶、章節標題、
+> 說明卡、註解、表格。**不要拿它們去排出「像圖的東西」**，圖本體一律走上面的
+> 「記法鐵律」用 Mermaid。`.node`／`.layer`／`.connector` 適合用來排一組並列的說明卡片，
+> 不適合表達「A 連到 B」——那需要真正的連線。
 
 分兩層，**這是本規格最容易被誤用的地方**：
 

@@ -94,11 +94,26 @@
 Only after answering all three: propose the action, explain the reasoning, then execute.
 **Past failure (2026-05-13):** gitignored `health/report.json` without checking that `actions_review.py` depends on it. The decision happened to be correct, but the process was wrong — acted first, investigated after being challenged. This is not acceptable.
 
-## Task Management
-- 跨 session、跨專案的任務一律記到 Notion Actions Engine，不塞進對話；session task（TaskCreate）只用於當次 planning，結束即棄。
-- 命名：具體動詞＋對象（脈絡），Type 用欄位不放標題。
-- 任務完成立刻標 Done，不拖到對話結束。
-- 完整 schema／DB ID／對話式 CRUD 協定見 SecondBrain 專案 CLAUDE.md（單一真實來源，避免雙處 drift）。
+## Task Management（2026-08-14 改：專案任務全面改用 pulse）
+- **所有專案（個人與工作皆同）的跨 session 任務一律記到 pulse**（正式站 `panpapa.cc`），不塞進對話；session task（TaskCreate）只用於當次 planning，結束即棄。
+- 寫入走 API／pulse MCP，不直改 DB（要留 change_logs）。session 沒掛 pulse MCP 時，直接打 `https://panpapa.cc/api/...`＋Bearer `$env:PULSE_TOKEN_CLAUDE`（token 不得印出、不得落檔）。
+- 報告每一列帶 pulse stream id；拿不出 id＝還沒寫進系統，先寫再出表（原 pulse 資料紀律，現在適用所有專案）。
+- 命名：具體動詞＋對象（脈絡）。完成立刻標 `done`，不拖到對話結束。
+- **用 Claude token 新建專案後，立刻 `POST /members` 把 Wind（suelife@gmail.com）加為 `owner`**——Claude token 是獨立帳號，不加的話 Wind 在自己的 pulse 看不到專案（2026-08-14 實際發生過）。
+- **Notion Actions Engine 自 2026-08-14 起不再收專案任務**（非專案雜項 Reminder／Life 不在此規則範圍）；其 schema 見 SecondBrain 專案 CLAUDE.md，僅供維護舊資料時查閱。
+
+## Skill 兩套並存的仲裁（2026-08-14 立；Wind 裁定維持並存，因為 skill 的價值就是他不用記）
+- superpowers 與 mattpocock-skills **並存**，分工固定：**superpowers 管流程閘門**（何時做、順序、不准跳——TDD 鐵律、沒跑驗證不准宣稱完成、沒根因不准修）；**Matt 管技術判準**（怎麼做才對——tdd 的 seam 與套套邏輯測試、diagnosing-bugs 的先建回饋迴路、domain-modeling 的 ADR 三重門檻）。
+- 同主題兩邊都有 skill 時**兩份都讀**，紀律從 superpowers、內容從 Matt，不擇一。
+- 版面／報告／說明類產出，最高優先仍是本檔的「報告格式」「技術說明」與 diagram-style——skill 只是外框，不得覆蓋。
+- Matt 的手動型 skill：**記得何時用是我的責任，不是 Wind 的**。代喚規則——
+  ① Wind 表達「看不懂／蛤／你在講什麼」→ 視同 `/wait-what`：立刻用白話＋領域詞彙重講（與本檔「技術說明」規則同源）；
+  ② 工作太大太模糊、連 spec 都起不了頭 → 主動提議 `/wayfinder`（把迷霧拆成決策票）；
+  ③ session 要收尾且工作未完 → 主動提議 `/handoff`。
+  ④ `/to-spec`、`/to-tickets`、`/triage` 屬 **repo 工程佇列層**（issue／ticket／PR），與 pulse 不重疊——pulse 只管協調層（承諾／狀態／當責／報告；其憲法明言「程式→git」不內建）。有 tracker 的 repo（pulse repo 已裝 Matt 的 local-markdown tracker＋triage 標籤）照常使用；feature 對話要落成可執行工單時，我主動提議 `/to-spec`。
+  `/implement` 的位置由 superpowers 流程佔用、`/grill-me`、`/teach`、`/wizard` 等 Wind 點名才用。
+  （訂正 2026-08-14：本條原寫「to-spec/to-tickets/triage 與 pulse 重疊不用」——錯，層次壓錯，pulse 從不擁有工程佇列層。）
+- 依據：2026-08-14 兩套全文盤點（superpowers 14 個＋Matt 工程/生產力主力）；結論＝superpowers 強在防偷懶的強制力、Matt 強在實戰判準，砍任一邊都是丟掉另一半的強項。
 
 ## Subagent／Workflow 派工（分級指定模型，別全用繼承的主模型）
 派 subagent／Workflow 時**依任務分級指定 `model`**（準則：用能勝任的**最小**模型，省成本、加速）；不要全留預設＝繼承主模型（拿 Opus 跑機械活是浪費）。`/workflows` UI 不顯示 model，故**撒 workflow 時要在訊息裡標明每段用哪個**，讓使用者看得到。
@@ -117,10 +132,20 @@ Only after answering all three: propose the action, explain the reasoning, then 
 - Never amend published commits; create a new one instead.
 
 ## Reference Docs (按需查閱,非常駐)
-- 要裝/用 **spec-kit + superpowers + bridge**（spec 先行→TDD 開發）時，參考 `00.claudedotfile/references/speckit-superpowers-install.md`（含 Windows cp950 與 Dropbox 鎖檔兩個必踩雷的對策）。
+- **spec-kit 已於 2026-08-14 全面移除**（CLI 已 uninstall、pulse 的 `.specify/` 與 `/speckit-*` skills 已清；規格層改由對話式 spec 流程負責）。`00.claudedotfile/references/speckit-superpowers-install.md` 保留**只為了**其中 Windows cp950（`$env:PYTHONUTF8=1`）與 Dropbox 鎖檔（重試）兩個通用對策，安裝步驟本身已作廢。
 
 ## 視覺化圖表風格
-- 需要畫**結構性圖**時（限系統架構／流程／資料模型／領域地圖，見 `visualization-scope` memory），一律套 `00.claudedotfile/references/diagram-style.md` 的視覺規格（色彩 token／字體角色／元件詞彙／設計原則），**不臨場自訂**。
+
+### 記法：圖本體一律用 Mermaid（2026-08-15 立，被打回兩次才立）
+- **`diagram-style.md` 管「視覺」，不管「記法」。** 它的色彩 token／元件詞彙是給**頁面外框**（標題、圖例、說明卡、註解、表格）用的；**圖本體一律用 Mermaid 的標準圖種**——架構／相依／分支＝`flowchart TB`（優先 TB，LR 容易長成超寬橫鏈）、有先後順序＝`sequenceDiagram`、資料模型＝`erDiagram`、狀態＝`stateDiagram-v2`。Artifact 原生支援（`<pre class="mermaid">`），不需 CDN、不違反 CSP。
+- **不要用 `.node`／`.layer` 排出「看起來像圖的清單」**——那沒有真正的連線，看不出誰連到誰，時序圖也沒有生命線與 `alt` 框。*犯過（2026-08-15）*：用 CSS 方塊加 `▼` 文字箭頭交了 10 張「架構圖」，Wind 問「架構圖跟流程圖，網路上是這樣的?」——**我把視覺風格當成了圖的文法。**
+- **絕不縮放**：`useMaxWidth:false`（flowchart／sequence／er／state 四個都要設）＋ `svg{max-width:none !important}` ＋ 容器 `overflow-x:auto`。**`max-width:100%` 是陷阱**——它讓圖縮小去配合容器，而不是讓容器捲動。*犯過（同日）*：3664px 的 ERD 被壓成 0.27×、手機 0.09×，文字 4px，Wind 的原話「根本看不清楚是三小」。**寧可橫捲，不要縮小**；頁面本體不橫捲，但單張圖的框可以。
+- **一張圖東西要少**：拆（16 張表的 ERD 拆成三張叢集、且只畫關聯不塞欄位，欄位放圖下方表格；長時序圖拆前半／後半）、節點標籤 ≤12 字、**細節寫在圖下方的文字**（塞進方塊只會把圖撐寬）、目標原生寬 ≤950px。
+- **交付前一定要量，不准用眼睛判斷**：跑真的 `mermaid.parse()` ＋ `mermaid.render()`，印出①**縮放倍率**（`renderedWidth / viewBox.width`，必須＝1）②**縮放後字高**（必須 ≥12px）。語法錯一個字整張圖就掛，而縮放倍率 <1 就是在把字縮小。
+- 可直接貼上的 init 與 CSS 片段見 `00.claudedotfile/references/diagram-style.md` 的「記法鐵律」段。
+
+### 視覺（頁面外框）
+- 需要畫**結構性圖**時（限系統架構／流程／資料模型／領域地圖，見 `visualization-scope` memory），外框一律套 `00.claudedotfile/references/diagram-style.md` 的視覺規格（色彩 token／字體角色／設計原則），**不臨場自訂**。
 - 交付走 **HTML 檔＋Artifact**（此環境 `show_widget` 無效、CSP 內聯一切、禁 CDN／外部字型）；**單獨的**決策清單／審查摘要／metrics 速覽（commits・測試數）／一般回覆一律**純文字**（唯一例外：達「報告格式」段觸發門檻的多項目報告）。
 - 該規格元件分「基元（恆用）」與「可選敘事裝置（ecg／heart／loop／run，僅內容真有核心／循環／指令時才用）」；**預設只用基元**，不要把來源圖的敘事家具原封搬到每張圖（那會製造 AI 味）。
 - accent 用靛藍是**刻意**與 app 青綠 UI 區隔（架構圖非產品截圖）；細節見規格。此段只觸發風格，「要不要畫**結構性圖**」的界線仍由 `visualization-scope` memory 決定；「要不要出**多項目報告**」由下面「報告格式」段決定。兩者互斥，皆不命中則純文字。
