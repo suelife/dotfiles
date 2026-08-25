@@ -50,26 +50,35 @@
 - **路徑**：`.claude/skills/fp/`
 - **來源**：symlink → `claudedotfile/.claude/skills/fp`
 
+### notebooklm
+- **路徑**：`.claude/skills/notebooklm/`
+- **來源**：symlink → `claudedotfile/.claude/skills/notebooklm`
+
 ### verify (驗證階梯)
 - **路徑**：`.claude/skills/verify/`
 - **來源**：symlink → `claudedotfile/.claude/skills/verify`
 - **何時用**：交付前要回答「這批東西驗到什麼程度」「可以部署了嗎」，或被問「你有沒有真的測過」
-- **重點**：強制區分自動化測試／開發區實跑／正式站驗證三層，禁止把第一層講成「完成」；
-  附九條踩過的陷阱（環境跑舊 code、測試假通過、退化案例、單次掃描假陰性、
-  沒查證就宣稱安全、「環境天生就慢」通常是設定錯、沒讀專案原有的開發迴圈就自己發明、
-  只有瀏覽器看得到的問題、值域擴充漏接消費端）
+- **重點**：薄型 evidence orchestrator；先做 Claim map，再依 Matt 的 TDD／debug／review seam 選 fresh evidence，區分自動化、隔離 runtime、production／使用者驗收三層。UI 必須從真實入口走完整旅程。
+
+## Local Agents
+
+- `agents/*.md` 會逐檔 symlink 到 `~/.claude/agents/`。
+- 新增 agent 時更新來源檔後重新執行 bootstrap；本機其他未受管理 agent 不會被移除。
 
 ---
 
 ## Bootstrap Integration
 
-執行 `python bootstrap.py` 時會自動：
-1. 建立 custom skills 的 symlinks
-2. 驗證所有 skills 是否就位
-3. 提示手動安裝官方 plugin 的步驟
+bootstrap 有三個明確 mode：
+
+1. `python bootstrap.py --dry-run`：只列出 link/settings 收斂計畫。
+2. `python bootstrap.py --apply`：先備份，再建立 links 並合併 managed settings；失敗會 rollback。
+3. `python bootstrap.py --verify`：唯讀檢查 exact link targets 與 managed settings。
+
+它不安裝 marketplace plugins；手動步驟以本檔為準。
 
 ## Maintenance
 
-- **新增 local skill**：在 `.claude/skills/` 下建立目錄，更新此檔案和 bootstrap.py
-- **移除 skill**：從 bootstrap.py 的 SYMLINKS 中移除，刪除物理目錄
+- **新增 local skill**：在 `.claude/skills/` 下建立目錄，更新此檔案、bootstrap.py 與 tests
+- **移除 skill**：先盤點 live consumers，再從 bootstrap 的 managed inventory 移除；不要直接刪除來源
 - **更新官方 plugin**：通過 Claude Code marketplace，不由此管理
