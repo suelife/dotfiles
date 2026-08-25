@@ -1,163 +1,80 @@
 ---
 name: verify
-description: 交付前的驗證階梯。要回答「這批東西到底驗到什麼程度」「可以部署了嗎」，或使用者問「你有沒有真的測過」時使用。強制區分自動化測試／開發區實跑／正式站驗證三層，並帶一份用血換來的陷阱清單。
+description: Use when preparing to claim a change is complete, fixed, deployable, or ready, or when asked what has actually been verified.
 ---
 
-# /verify — 驗證階梯
+# Verify
 
-## 為什麼需要這個 skill
+把「測試通過」轉換成與交付聲明相稱的 fresh evidence。這是一個薄型驗證協調層；它不取代專案指令，也不重寫 Matt 的 `tdd`、`diagnosing-bugs`、`implement`、`code-review`。
 
-「測試通過」和「這東西能用」是兩件事，而它們一直被混為一談。
-`338 passed` 聽起來像可以上線了，實際上可能是：開發區跑的是三天前的舊 code、
-測試斷言查詢一個永遠對不上的名稱、migration 對真資料會撞號、
-排序功能寫了但那張表根本不讀它。**以上每一項都真的發生過。**
+## 第一原則
 
-## 核心：三層，不准混講
+驗證結論 must not exceed 當輪取得的證據。先列要說的話，再為每個聲明選擇能直接觀察其結果的證據；不能從一個綠燈外推另一個未觀察的結果。
 
-回報任何「完成」時，必須指明是哪一層。
+### Claim map
 
-| 層 | 內容 | 證明什麼 | **不**證明什麼 |
+開始前建立簡短表格：
+
+| Claim | Risk if false | Observable proof | Fresh command or journey | Evidence gap |
+|---|---|---|---|---|
+| `<交付聲明>` | `<影響>` | `<結果本身>` | `<這一輪執行>` | `<未驗部分>` |
+
+證據必須 outcome-specific。`HTTP 200` 只證明該請求有成功回應；它不證明新設定、新 provider、資料持久化或使用者看到了 new path。那些聲明各自需要設定讀回、重啟後狀態、資料查詢或實際旅程。
+
+## 依工作類型選驗證迴圈
+
+- 新功能或 bugfix：沿用 Matt `tdd`。測試走 public seam，以 independent source of truth 建立預期，採 vertical slice 的 RED → GREEN；不要讓測試複製 production 演算法。
+- 困難 bug：先用 `diagnosing-bugs` 建立 deterministic、red-capable、能重現 exact symptom 的迴圈。
+- 實作期間：只跑最接近改動的 focused checks；工作完成後才跑一次適用的 full suite。
+- Review：以明確 base commit、merge-base 或其他 fixed point 鎖定範圍；分開檢查 Standards 與 Spec，不以其中一軸代替另一軸。
+
+若專案提供驗證命令、CI gate 或 agent instructions，優先使用它們。先讀 `package.json`、`pyproject.toml`、`Makefile`、Compose、scripts 與相關設定，避免發明另一套開發迴圈。
+
+## 三層證據
+
+| 層 | 內容 | 能證明 | 不能證明 |
 |---|---|---|---|
-| **1 自動化測試** | unit／contract／typecheck／build | 邏輯符合**我自己寫的**斷言 | 畫面對不對、能不能用、真資料下有沒有意義 |
-| **2 開發區實跑** | 真 server、真 DB、真資料、多帳號、**開瀏覽器點** | 這東西真的會動 | 正式資料的規模與髒度下會怎樣 |
-| **3 正式站驗證** | 真使用者、真後果 | 它真的解決了問題 | — |
+| 1 靜態與自動化 | unit、contract、typecheck、lint、build | 已覆蓋契約在測試環境成立 | 真 runtime、畫面、正式資料 |
+| 2 隔離 runtime | 真 process、DB、API、瀏覽器、重啟 | 整合後的實際行為 | production 狀態與後果 |
+| 3 production／使用者驗收 | 真部署、真資料、真使用路徑 | 僅正式環境可觀察的結果 | 未執行的其他情境 |
 
-**只做到第 1 層就說「完成」是謊報。** 標 `done` 時要註明程度。
+驗證深度由失敗風險決定：純文件或內部重構通常停在第 1 層；使用者可見功能至少到第 2 層；migration、權限、不可逆資料、對外端點或 production cutover 需要明確的人類 GO，再執行第 3 層。舊授權不能自動擴張成新的 production 授權。
 
-## 開工前：先確認你在測的是新東西
+## 執行流程
 
-**這一步最常被跳過，跳過的話後面全白做。**
+1. 固定範圍與版本：記錄 branch、HEAD、base／fixed point、dirty state；確認 runtime 真正載入這次變更，而非舊 image 或舊 process。
+2. 寫 Claim map，逐項標明證據層級、負向案例、資料與環境前提。
+3. 執行 focused checks；記錄完整命令、exit code、pass／fail／deselect／warning 數字，不從先前結果推算。
+4. 對新測試保留 RED 證據，或用受控 mutation 證明它會抓到缺陷；禁止破壞使用者的 dirty worktree。
+5. 執行適用的 full suite 與 build；若跳過昂貴 gate，寫成 evidence gap，不得默認通過。
+6. 需要 runtime 時，以隔離資源、bounded timeout、可驗 cleanup、before／after guard 執行。不要把測試資源寫進 canonical data。
+7. 使用者可見 UI 必須從 real entry point 走完整旅程，而不是直接跳內頁：
+   - 實際點擊每個改動的互動與下一步，觀察 loading、empty、error、success；
+   - 判斷 duplicate controls、無反應按鈕、關閉後 focus、鍵盤與 accessibility；
+   - 讀 console、network、page errors；API 綠燈不能替代畫面與互動；
+   - 每一步記錄「使用者看到什麼」，必要時截圖，不只量 DOM。
+8. 重新讀 diff、範圍與清理結果，確認驗證本身未造成未授權 mutation。
 
-```bash
-# 後端：期望的新欄位在不在？
-curl -s http://<dev>/openapi.json | python -c "
-import sys,json; sch=json.load(sys.stdin)['components']['schemas']
-for n in ('<新增或改動的 schema>',): print(n, sorted(sch.get(n,{}).get('properties',{})))"
+## 證據留存
 
-# DB：migration 跑了沒？
-select version_num from alembic_version;   # 或等價的
-```
+Playwright 官方支援 `trace: "retain-on-failure"` 與 `screenshot: "only-on-failure"`，但這是可用能力，不是所有專案的強制預設：
 
-看到舊 schema 就**停下來**，先把環境弄到新版，不要開始測。
+- https://playwright.dev/docs/test-use-options
 
-真實案例：開發區的容器跑了 5 天的舊 code，我對它做的所有「驗證」都是在驗上一版。
+是否留 trace、screenshot、HTML report 或 CI artifact，依 acceptance、除錯需求、敏感資料與團隊可取用性決定。GitHub Actions 官方文件說明 artifact 與 `retention-days`，不代表每個專案都必須上傳：
 
-## 陷阱清單（每一條都踩過）
+- https://docs.github.com/en/actions/tutorials/store-and-share-data
 
-### 1. 測試假通過
-斷言查一個永遠對不上的東西，功能壞了它也綠。
-**做法**：`git stash` 把修補抽掉，跑新測試，**確認它們會紅**，再 pop 回來。
-綠燈不是證據，只是還沒被推翻。
-
-### 2. 退化案例
-「催過的球仍排第一」在只有一顆球時必然成立。
-「篩選有效」在只有一種狀態時必然成立。
-**做法**：測排序至少三筆且值不同；測篩選至少兩種狀態。用既有的真資料，不要現造——
-現造的資料時間戳全是今天，年齡差是 0，等於沒測。
-
-### 3. 單次掃描的假陰性
-對整份 diff 做一次廣泛安全掃描，回報零發現。
-換成「假設這四個面各有一個漏洞，動手做出可行攻擊」，挖出兩個真的。
-**做法**：零發現不接受當結論。改用鎖定面向的對抗式複驗，一個面一個 agent。
-
-### 4. 沒查證就宣稱安全
-「正式區的資料都是 X，所以這支 migration 安全」——推論不是查證。
-**做法**：逐專案／逐表實際查。而且**即使今天碰巧安全，SQL 本身錯就是錯**，
-下一個環境就會出事。
-
-### 5. 「環境天生就慢」通常是設定錯，不是宿命
-碰到「這個環境就是慢」，先量兩個變體再下結論——逾時型的整齊鈍化幾乎都是
-DNS 或連線 fallback。**細節見全域 CLAUDE.md 的「本機環境事實」段**（那裡是這條
-規則的家，這裡不複述數字，免得兩邊漂移）。
-
-我曾把它當成宿命寫進這個 skill 當經驗傳下去。**「只能繞過」這種結論本身就該被懷疑。**
-
-### 5b. 先讀專案原本設計的開發迴圈，不要自己發明
-我為了一行前端文案改動重建了兩次 Docker image。而 `vite.config.ts` 裡本來就有
-`/api` proxy、`launch.json` 本來就有 dev server 設定——`pnpm dev` 秒級 HMR，
-根本不用碰容器。
-**做法**：動手前先看 `vite.config`／`compose`／`launch.json`／`scripts/`，
-專案通常已經有人設計過快路徑。
-
-### 6. 只有開瀏覽器才看得到的問題
-排序鍵換了但畫面顯示的是另一個數字，使用者會認為排序壞了。
-API 測試看的是值，看不出「人看到會怎麼想」。
-**做法**：第 2 層一定要包含瀏覽器實際操作，不能用 API 測代替。
-
-### 7. 測錯案例卻以為是 bug
-提示只在「不會掛名」時顯示，我在「會掛名」的專案測，以為壞了。
-**做法**：斷言前先確認前提條件成立。看起來壞掉時，先懷疑自己的測試。
-
-### 8. 一個元件改了，同語意的其他元件沒改
-後端回傳值域從兩值擴成三值，三個畫面各自手寫對應，兩處漏接，
-最嚴重的專案反而顯示綠色。
-**做法**：改變值域時 grep 全部消費端。對應關係收成單一函式，不要修三次。
-
-## 執行順序
-
-**步驟 0 與步驟 3 最常被跳過，而它們正是這個 skill 存在的理由。**
-
-**0. 確認你在測新東西**（見上一節）。看到舊 schema 就停下來先更新環境。
-   跳過的話後面全白做——曾經對著五天前的 image 驗了一整輪。
-
-**1. 讀專案原本設計的開發迴圈**：`vite.config` / `compose` / `launch.json` / `scripts/`。
-   通常已經有人設計過快路徑，不要自己發明（陷阱 5b）。
-
-**2. 跑自動化測試**，記下數字。**數字要現查，不准憑印象寫，也不准從上一次的
-   數字推算**——我曾把 338 推成 341，還是在「更正」的名義下推錯的。
-
-**3. 證明新測試非虛**：
-   ```bash
-   git stash push -- <只有原始碼，不含測試>
-   <跑新增的那幾個測試>        # 必須全紅
-   git stash pop
-   ```
-   綠燈不是證據，只是還沒被推翻。這輪抓到過元件壞掉也會通過的測試。
-
-**4. 開發區 API 實跑**：多帳號（權限交叉）、負向案例（403／409／422）、
-   **用既有的真資料**——現造的資料時間戳全是今天，年齡差是 0，測排序等於沒測。
-
-**5. 開發區瀏覽器實跑**：每個改動的畫面真的點過並截圖。
-   有些問題只有這裡看得到（陷阱 6）。
-
-**6. 正式站**：部署後驗「只有這裡驗得到的」——對外端點的實際回應、migration 對
-   真資料的效果、以及用真資料才判斷得出的驗收標準。
-
-**7. 回報時標明層級**，沒做到的層直接說沒做。回寫任務系統。
-
-## 比例原則
-
-不是每件事都要走完三層。
-
-- **改一個字串／樣式** → 第 1 層＋看一眼畫面就夠
-- **改邏輯、加欄位** → 走到第 2 層
-- **動 migration、權限、對外端點、跨元件的值域** → 三層都要，而且第 2 層要含負向案例
-- **純內部重構且測試涵蓋充分** → 第 1 層可接受，但要明說
-
-判準是「錯了誰會受害、多久才會發現」。使用者看得到的、資料改不回來的、
-外人讀得到的，一律往上一層。
-
-## 證據留存（2026-08-21 立；業界做法查證過一手來源才寫）
-
-**原則：失敗才留證據，通過的綠燈本身就是產出。** 這不是偷懶，是業界壓倒性
-主流（Playwright 官方建議；VS Code／Storybook／Grafana 的 config 實讀皆同；
-GitHub 全站 `only-on-failure` 對 `on` 約 10:1）。留一堆綠燈截圖不會讓人更信
-測試——讓人信的是「弄壞它會紅」，那是上面步驟 3 變異測試的工作。
-
-- **e2e config 預設**（每個有 Playwright 的專案都照這組設）：
-  ```ts
-  trace: "retain-on-failure",        // 失敗留 trace（含逐步畫面＋DOM 快照）
-  screenshot: "only-on-failure",     // 失敗另存一張 PNG，不開 viewer 也一眼可讀
-  ```
-- **證據的可及性比截圖與否重要**：報告只活在本機、下一輪就被覆蓋＝拿不出
-  第三方可查的佐證。要給人看的佐證，業界標準形式是 **CI 上傳 HTML 報告
-  artifact**（`if: !cancelled()`、retention 30 天），不是散裝截圖。
-- **視覺回歸 pixel baseline**（Percy／Chromatic／`toHaveScreenshot`）只在
-  「設計系統、多人共改元件」的專案划算；隨機測資與 pixel baseline 直接衝突。
-  單人主導的產品專案不預設做。
+禁止用搜尋筆數、未驗證比例或「大家都這樣做」當規則。失敗證據通常最有除錯價值；但視覺驗收、稽核或人類 GO／NO-GO 可能需要成功證據。
 
 ## 回報格式
 
-不要只給總數。每一項要能回答：**驗到第幾層、怎麼驗的、哪裡還沒驗**。
+回報至少包含：
 
-沒驗到的就寫沒驗到。**把第 1 層講成「完成」是這個 skill 存在的原因。**
+- 已驗證：claim → fresh evidence → 結果。
+- 未驗證：每個 evidence gap 及其風險。
+- 環境：版本、資料範圍、是否隔離、是否觸及 production。
+- 終態：清理、git status、殘留資源與 rollback 狀態。
+- 結論：只說 `verified at layer N`、`ready for human GO`、`blocked` 或 `not verified` 等與證據相稱的話。
+
+禁止用「應該可以」「看起來正常」代替證據。若 fresh evidence 失敗或缺失，就先修正或如實標記，不得宣稱完成。
