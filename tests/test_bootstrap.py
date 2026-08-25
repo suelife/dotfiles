@@ -291,6 +291,29 @@ class BootstrapCliTests(unittest.TestCase):
         self.assertFalse((self.fixture.claude_home / "statusline.sh").exists())
         self.assertEqual(settings_before, settings_path.read_bytes())
 
+    def test_apply_checks_symlink_capability_before_creating_backup(self) -> None:
+        mappings = bootstrap.link_map(self.fixture.profile, self.fixture.home)
+        settings_path = self.fixture.claude_home / "settings.json"
+        current = bootstrap.read_settings(settings_path)
+        desired = bootstrap.merged_settings(
+            current, self.fixture.profile, self.fixture.home
+        )
+
+        with mock.patch.object(
+            bootstrap.os, "symlink", side_effect=OSError("symlink unavailable")
+        ):
+            with self.assertRaisesRegex(OSError, "symlink unavailable"):
+                bootstrap.run_apply(
+                    mappings,
+                    bootstrap.link_changes(mappings),
+                    self.fixture.claude_home,
+                    settings_path,
+                    current,
+                    desired,
+                )
+
+        self.assertFalse((self.fixture.claude_home / "portable-backups").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -219,6 +219,17 @@ def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
             temporary.unlink()
 
 
+def preflight_symlink_capability() -> None:
+    with tempfile.TemporaryDirectory(prefix="claude-profile-link-probe-") as root:
+        probe_root = Path(root)
+        source = probe_root / "source"
+        destination = probe_root / "destination"
+        source.mkdir()
+        os.symlink(source, destination, target_is_directory=True)
+        if not link_matches(source, destination):
+            raise OSError("symlink probe did not resolve to its source")
+
+
 def backup_relative(destination: Path, claude_home: Path) -> Path:
     try:
         return Path("claude") / destination.relative_to(claude_home)
@@ -274,6 +285,7 @@ def run_apply(
         print("APPLY_OK")
         return 0
 
+    preflight_symlink_capability()
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
     backup_root = claude_home / "portable-backups" / stamp
     moved: list[tuple[Path, Path]] = []
