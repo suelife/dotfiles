@@ -7,6 +7,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+
+import bootstrap
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -249,6 +252,44 @@ class BootstrapCliTests(unittest.TestCase):
             (self.fixture.claude_home / "CLAUDE.md").read_text(encoding="utf-8"),
         )
         self.assertFalse((self.fixture.claude_home / "portable-backups").exists())
+
+    def test_apply_rolls_back_if_link_creation_fails(self) -> None:
+        mappings = bootstrap.link_map(self.fixture.profile, self.fixture.home)
+        settings_path = self.fixture.claude_home / "settings.json"
+        settings_before = settings_path.read_bytes()
+        current = bootstrap.read_settings(settings_path)
+        desired = bootstrap.merged_settings(
+            current, self.fixture.profile, self.fixture.home
+        )
+        changes = bootstrap.link_changes(mappings)
+        real_symlink = bootstrap.os.symlink
+        calls = 0
+
+        def fail_second_symlink(*args: object, **kwargs: object) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("controlled symlink failure")
+            real_symlink(*args, **kwargs)
+
+        with mock.patch.object(bootstrap.os, "symlink", fail_second_symlink):
+            with self.assertRaisesRegex(OSError, "controlled symlink failure"):
+                bootstrap.run_apply(
+                    mappings,
+                    changes,
+                    self.fixture.claude_home,
+                    settings_path,
+                    current,
+                    desired,
+                )
+
+        self.assertFalse((self.fixture.claude_home / "CLAUDE.md").is_symlink())
+        self.assertEqual(
+            "local global\n",
+            (self.fixture.claude_home / "CLAUDE.md").read_text(encoding="utf-8"),
+        )
+        self.assertFalse((self.fixture.claude_home / "statusline.sh").exists())
+        self.assertEqual(settings_before, settings_path.read_bytes())
 
 
 if __name__ == "__main__":

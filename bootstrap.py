@@ -1,212 +1,371 @@
 #!/usr/bin/env python3
-"""
-New machine bootstrap script.
-Creates symlinks from ~/.claude/ to Dropbox-synced dotfiles,
-and patches ~/.claude/settings.json with machine-specific paths.
+"""Converge a Claude home onto this portable profile."""
 
-== 換新機器的初始化步驟 ==
+from __future__ import annotations
 
-1. 安裝 Node.js（https://nodejs.org）
-2. 安裝 Claude Code：
-       npm install -g @anthropic-ai/claude-code
-3. 登入：
-       claude
-   （首次啟動會要求登入 Anthropic 帳號）
-4. 確認 Dropbox 已同步完成
-5. 執行此腳本：
-       cd ~/Dropbox/00.claudedotfile
-       python bootstrap.py
-
-完成後所有 symlink、settings、agents、skills 全部就位。
-
-Usage:
-    python bootstrap.py
-"""
+import argparse
+from copy import deepcopy
+from datetime import UTC, datetime
 import json
 import os
+from pathlib import Path
+import shutil
 import sys
-import pathlib
-import io
+import tempfile
+from typing import Any
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-USERNAME = os.environ.get("USERNAME") or os.environ.get("USER")
-HOME = pathlib.Path.home()
-DROPBOX = HOME / "Dropbox" / "00.claudedotfile"
+MANAGED_SKILLS = ("fp", "notebooklm", "verify")
+FORBIDDEN_PORTABLE_PATHS = (
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    ".claude/auth.json",
+    ".claude/credentials.json",
+)
 
-# (target_in_dropbox, link_in_system)
-# 根據 skill_index.md 記錄的 skills 進行 symlink
-# 僅包含 LOCAL CUSTOM SKILLS；官方 plugin skills 通過 marketplace 管理
-SYMLINKS = [
-    (DROPBOX / ".claude" / "CLAUDE.md",                HOME / ".claude" / "CLAUDE.md"),
-    (DROPBOX / "statusline.sh",                         HOME / ".claude" / "statusline.sh"),
-    (DROPBOX / ".claude" / "skills" / "fp",             HOME / ".claude" / "skills" / "fp"),
-    (DROPBOX / ".claude" / "skills" / "notebooklm",     HOME / ".claude" / "skills" / "notebooklm"),
-    (DROPBOX / ".claude" / "skills" / "verify",         HOME / ".claude" / "skills" / "verify"),
-]
 
-# Agents directory: sync all .md files from dotfiles/agents/ → ~/.claude/agents/
-AGENTS_SRC = DROPBOX / "agents"
-AGENTS_DST = HOME / ".claude" / "agents"
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Converge ~/.claude onto a portable profile safely."
+    )
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--dry-run", action="store_true")
+    mode.add_argument("--apply", action="store_true")
+    mode.add_argument("--verify", action="store_true")
+    parser.add_argument(
+        "--profile-root",
+        type=Path,
+        default=Path(__file__).resolve().parent,
+    )
+    parser.add_argument("--home", type=Path, default=Path.home())
+    return parser.parse_args()
 
-# Patch these keys into ~/.claude/settings.json using resolved local paths.
-# Values are callables so they're evaluated at runtime on each machine.
-def _statusline_value():
-    path = str(HOME / ".claude" / "statusline.sh").replace("\\", "/")
-    return {"type": "command", "command": f"bash '{path}'"}
 
-# Top-level key patches
-SETTINGS_PATCHES = {
-    "statusLine": _statusline_value,
-}
+def link_map(profile_root: Path, home: Path) -> list[tuple[Path, Path]]:
+    claude_home = home / ".claude"
+    mappings = [
+        (profile_root / ".claude/CLAUDE.md", claude_home / "CLAUDE.md"),
+        (profile_root / "statusline.sh", claude_home / "statusline.sh"),
+    ]
+    mappings.extend(
+        (
+            profile_root / f".claude/skills/{skill}",
+            claude_home / f"skills/{skill}",
+        )
+        for skill in MANAGED_SKILLS
+    )
+    mappings.extend(
+        (agent, claude_home / "agents" / agent.name)
+        for agent in sorted((profile_root / "agents").glob("*.md"))
+    )
+    return mappings
 
-# Nested key patches: tuple of keys → callable returning value
-def _additional_dirs_value():
-    secondbrain = str(HOME / "Dropbox" / "00.SecondBrain")
-    claudedotfile = str(HOME / "Dropbox" / "00.claudedotfile")
-    return [secondbrain, claudedotfile]
 
-def _session_start_hook_value():
-    script = str(HOME / "Dropbox" / "00.SecondBrain" / "scripts" / "check_inbox.py").replace("\\", "/")
-    return [{"hooks": [{"type": "command", "command": f'python "{script}"'}]}]
+def normalized_path(value: str | Path) -> str:
+    return os.path.normcase(os.path.abspath(os.fspath(value)))
 
-def _post_tool_use_hook_value():
-    """引用檢查：交付物裡引用了沒開過的檔案就回報。
 
-    settings.json 本身刻意不進版控（含機器特定的絕對路徑），但註冊這件事要版控，
-    否則換機就沒了——腳本在 repo 裡，這裡負責把它接上。
-    """
-    hooks = HOME / "Dropbox" / "00.claudedotfile" / "hooks"
-    log_read = str(hooks / "log_read.py")
-    check = str(hooks / "check_citations.py")
+def managed_post_hooks(profile_root: Path) -> list[dict[str, Any]]:
+    log_read = str(profile_root / "hooks/log_read.py")
+    check_citations = str(profile_root / "hooks/check_citations.py")
     return [
         {
             "matcher": "Read|Write|Edit",
-            "hooks": [{"type": "command", "command": "python",
-                       "args": [log_read], "timeout": 10}],
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python",
+                    "args": [log_read],
+                    "timeout": 10,
+                }
+            ],
         },
         {
             "matcher": "Write|Edit",
-            "hooks": [{"type": "command", "command": "python",
-                       "args": [check], "timeout": 15,
-                       "statusMessage": "檢查引用"}],
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "python",
+                    "args": [check_citations],
+                    "timeout": 15,
+                    "statusMessage": "檢查引用",
+                }
+            ],
         },
     ]
 
-NESTED_PATCHES = {
-    ("permissions", "additionalDirectories"): _additional_dirs_value,
-    ("hooks", "SessionStart"):                _session_start_hook_value,
-    ("hooks", "PostToolUse"):                 _post_tool_use_hook_value,
-}
+
+def merged_settings(
+    current: dict[str, Any], profile_root: Path, home: Path
+) -> dict[str, Any]:
+    result = deepcopy(current)
+    statusline = str(home / ".claude/statusline.sh").replace("\\", "/")
+    result["statusLine"] = {
+        "type": "command",
+        "command": f"bash '{statusline}'",
+    }
+
+    permissions = result.setdefault("permissions", {})
+    if not isinstance(permissions, dict):
+        raise ValueError("settings.json permissions must be an object")
+    additional = permissions.get("additionalDirectories", [])
+    if not isinstance(additional, list):
+        raise ValueError("settings.json permissions.additionalDirectories must be a list")
+    managed_dirs = {
+        normalized_path(home / "Dropbox/00.SecondBrain"),
+        normalized_path(profile_root),
+    }
+    permissions["additionalDirectories"] = [
+        value
+        for value in additional
+        if not isinstance(value, str) or normalized_path(value) not in managed_dirs
+    ]
+
+    hooks = result.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise ValueError("settings.json hooks must be an object")
+    session_start = hooks.get("SessionStart", [])
+    if not isinstance(session_start, list):
+        raise ValueError("settings.json hooks.SessionStart must be a list")
+    hooks["SessionStart"] = [
+        hook
+        for hook in session_start
+        if "check_inbox.py" not in json.dumps(hook, ensure_ascii=False)
+    ]
+
+    post_tool_use = hooks.get("PostToolUse", [])
+    if not isinstance(post_tool_use, list):
+        raise ValueError("settings.json hooks.PostToolUse must be a list")
+    unmanaged_post_hooks = [
+        hook
+        for hook in post_tool_use
+        if all(
+            managed_name not in json.dumps(hook, ensure_ascii=False)
+            for managed_name in ("log_read.py", "check_citations.py")
+        )
+    ]
+    hooks["PostToolUse"] = unmanaged_post_hooks + managed_post_hooks(profile_root)
+    return result
 
 
-def create_symlink(target: pathlib.Path, link: pathlib.Path) -> None:
-    if not target.exists():
-        print(f"✗ Target not found: {target}")
-        sys.exit(1)
-
-    if link.exists() or link.is_symlink():
-        print(f"  Already exists, skipping: {link}")
-        return
-
-    link.parent.mkdir(parents=True, exist_ok=True)
-    os.symlink(str(target), str(link))
-    print(f"✓ {link} → {target}")
+def read_settings(settings_path: Path) -> dict[str, Any]:
+    if not settings_path.exists():
+        return {}
+    value = json.loads(settings_path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("settings.json root must be an object")
+    return value
 
 
-def patch_settings() -> None:
-    settings_path = HOME / ".claude" / "settings.json"
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-
-    data = {}
-    if settings_path.exists():
-        with open(settings_path, encoding="utf-8") as f:
-            data = json.load(f)
-
-    changed = False
-    for key, value_fn in SETTINGS_PATCHES.items():
-        value = value_fn()
-        if data.get(key) != value:
-            data[key] = value
-            print(f"✓ settings.json: {key} = {value}")
-            changed = True
-        else:
-            print(f"  Already set, skipping: {key}")
-
-    for keys, value_fn in NESTED_PATCHES.items():
-        value = value_fn()
-        parent = data
-        for k in keys[:-1]:
-            parent = parent.setdefault(k, {})
-        last = keys[-1]
-        if parent.get(last) != value:
-            parent[last] = value
-            print(f"✓ settings.json: {'.'.join(keys)} updated")
-            changed = True
-        else:
-            print(f"  Already set, skipping: {'.'.join(keys)}")
-
-    if changed:
-        with open(settings_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write("\n")
+def validate_profile(profile_root: Path, mappings: list[tuple[Path, Path]]) -> None:
+    for relative in FORBIDDEN_PORTABLE_PATHS:
+        forbidden = profile_root / relative
+        if forbidden.exists() or forbidden.is_symlink():
+            raise ValueError(f"forbidden portable state: {forbidden}")
+    for source, _ in mappings:
+        if not source.exists():
+            raise ValueError(f"source missing: {source}")
+    for required_hook in ("hooks/log_read.py", "hooks/check_citations.py"):
+        if not (profile_root / required_hook).is_file():
+            raise ValueError(f"source missing: {profile_root / required_hook}")
+    destinations = [normalized_path(destination) for _, destination in mappings]
+    if len(destinations) != len(set(destinations)):
+        raise ValueError("duplicate managed destination")
 
 
-def sync_agents() -> None:
-    """Symlink every .md file in dotfiles/agents/ into ~/.claude/agents/."""
-    if not AGENTS_SRC.exists():
-        print("  agents/ directory not found in dotfiles, skipping.")
-        return
-
-    AGENTS_DST.mkdir(parents=True, exist_ok=True)
-    for agent_file in sorted(AGENTS_SRC.glob("*.md")):
-        dst = AGENTS_DST / agent_file.name
-        if dst.is_symlink() and dst.resolve() == agent_file.resolve():
-            print(f"  Already linked, skipping: {agent_file.name}")
-        elif dst.exists():
-            print(f"  ✗ {agent_file.name} exists but is NOT a symlink — skipping")
-        else:
-            os.symlink(str(agent_file), str(dst))
-            print(f"✓ ~/.claude/agents/{agent_file.name} → {agent_file}")
+def link_matches(source: Path, destination: Path) -> bool:
+    try:
+        return destination.is_symlink() and destination.resolve() == source.resolve()
+    except OSError:
+        return False
 
 
-def verify_symlinks() -> None:
-    print("\nVerifying symlinks:")
-    all_ok = True
-    for target, link in SYMLINKS:
-        if link.is_symlink() and link.resolve() == target.resolve():
-            print(f"  ✓ {link.name} → {target}")
-        elif link.exists():
-            print(f"  ✗ {link.name} exists but is NOT a symlink")
-            all_ok = False
-        else:
-            print(f"  ✗ {link.name} missing")
-            all_ok = False
+def link_changes(
+    mappings: list[tuple[Path, Path]],
+) -> list[tuple[Path, Path]]:
+    return [
+        (source, destination)
+        for source, destination in mappings
+        if not link_matches(source, destination)
+    ]
 
-    if all_ok:
-        print("\nAll good.")
+
+def describe_actual(destination: Path) -> str:
+    if destination.is_symlink():
+        try:
+            return f"symlink -> {os.readlink(destination)}"
+        except OSError as error:
+            return f"unreadable symlink ({error})"
+    if destination.exists():
+        return "ordinary path"
+    return "missing"
+
+
+def write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(value, stream, indent=2, ensure_ascii=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def backup_relative(destination: Path, claude_home: Path) -> Path:
+    try:
+        return Path("claude") / destination.relative_to(claude_home)
+    except ValueError as error:
+        raise ValueError(f"destination escapes Claude home: {destination}") from error
+
+
+def verify_state(
+    mappings: list[tuple[Path, Path]], settings_path: Path, desired: dict[str, Any]
+) -> list[str]:
+    errors = []
+    for source, destination in mappings:
+        if not link_matches(source, destination):
+            errors.append(
+                f"WRONG_LINK {destination}: expected {source}; actual "
+                f"{describe_actual(destination)}"
+            )
+    try:
+        current = read_settings(settings_path)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        errors.append(f"SETTINGS_INVALID {settings_path}: {error}")
     else:
-        print("\nSome symlinks are broken. Re-run bootstrap.")
+        if current != desired:
+            errors.append(f"SETTINGS_DRIFT {settings_path}")
+    return errors
 
 
-def print_manual_steps() -> None:
-    """提示需要手動執行的步驟（官方 plugin 等）。"""
-    print("\n📋 Manual Steps Required:\n")
-    print("1. Enable superpowers plugin:")
-    print("   - Open Claude Code settings")
-    print("   - Search for 'superpowers' in Extensions/Plugins")
-    print("   - Enable 'superpowers@claude-plugins-official'")
-    print("\n2. Verify skill_index.md for latest skills list")
-    print("   📄 See: claudedotfile/skill_index.md\n")
+def run_dry_run(
+    changes: list[tuple[Path, Path]], settings_changed: bool
+) -> int:
+    for source, destination in changes:
+        print(f"PLAN backup then link {destination} -> {source}")
+    if settings_changed:
+        print("PLAN settings merge managed fields")
+    if not changes and not settings_changed:
+        print("UNCHANGED")
+    print("DRY_RUN_OK")
+    return 0
+
+
+def run_apply(
+    mappings: list[tuple[Path, Path]],
+    changes: list[tuple[Path, Path]],
+    claude_home: Path,
+    settings_path: Path,
+    current_settings: dict[str, Any],
+    desired_settings: dict[str, Any],
+) -> int:
+    settings_changed = current_settings != desired_settings
+    if not changes and not settings_changed:
+        print("BACKUP_ROOT=none")
+        print("UNCHANGED")
+        print("APPLY_OK")
+        return 0
+
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    backup_root = claude_home / "portable-backups" / stamp
+    moved: list[tuple[Path, Path]] = []
+    created_links: list[Path] = []
+    settings_backup: Path | None = None
+    try:
+        backup_root.mkdir(parents=True, exist_ok=False)
+        for _, destination in changes:
+            if destination.exists() or destination.is_symlink():
+                backup = backup_root / backup_relative(destination, claude_home)
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(os.fspath(destination), os.fspath(backup))
+                moved.append((destination, backup))
+
+        if settings_changed and settings_path.exists():
+            settings_backup = backup_root / "claude/settings.json"
+            settings_backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(settings_path, settings_backup)
+
+        for source, destination in changes:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.symlink(
+                os.fspath(source),
+                os.fspath(destination),
+                target_is_directory=source.is_dir(),
+            )
+            created_links.append(destination)
+        if settings_changed:
+            write_json_atomic(settings_path, desired_settings)
+
+        errors = verify_state(mappings, settings_path, desired_settings)
+        if errors:
+            raise RuntimeError("; ".join(errors))
+    except Exception:
+        for destination in reversed(created_links):
+            if destination.is_symlink():
+                destination.unlink()
+        for destination, backup in reversed(moved):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(os.fspath(backup), os.fspath(destination))
+        if settings_changed:
+            if settings_backup is not None and settings_backup.exists():
+                shutil.copy2(settings_backup, settings_path)
+            elif settings_path.exists():
+                settings_path.unlink()
+        raise
+
+    print(f"BACKUP_ROOT={backup_root}")
+    print("APPLY_OK")
+    return 0
+
+
+def main() -> int:
+    args = parse_args()
+    profile_root = args.profile_root.resolve()
+    home = args.home.resolve()
+    claude_home = home / ".claude"
+    settings_path = claude_home / "settings.json"
+    mappings = link_map(profile_root, home)
+    try:
+        validate_profile(profile_root, mappings)
+        current_settings = read_settings(settings_path)
+        desired_settings = merged_settings(current_settings, profile_root, home)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        print(f"ERROR {error}", file=sys.stderr)
+        return 1
+
+    changes = link_changes(mappings)
+    settings_changed = current_settings != desired_settings
+    if args.dry_run:
+        return run_dry_run(changes, settings_changed)
+    if args.verify:
+        errors = verify_state(mappings, settings_path, desired_settings)
+        if errors:
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
+        print("VERIFY_OK")
+        return 0
+    try:
+        return run_apply(
+            mappings,
+            changes,
+            claude_home,
+            settings_path,
+            current_settings,
+            desired_settings,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"APPLY_FAILED {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    print(f"Bootstrap dotfiles for: {USERNAME}\n")
-    for target, link in SYMLINKS:
-        create_symlink(target, link)
-    print("\nSyncing agents:")
-    sync_agents()
-    print("\nPatching settings:")
-    patch_settings()
-    verify_symlinks()
-    print_manual_steps()
+    raise SystemExit(main())
