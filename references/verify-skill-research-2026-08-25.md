@@ -42,7 +42,7 @@ Coco's seven-category checklist is useful for React-heavy repositories, but TDZ,
 
 ### Evidence retention claims need narrower wording
 
-Playwright officially supports `screenshot: "only-on-failure"` and `trace: "retain-on-failure"`; its official GitHub Actions example uploads the HTML report with `if: !cancelled()` and `retention-days: 30`. GitHub documents configurable artifact retention. These facts support a failure-oriented default and CI-accessible evidence.
+Playwright officially supports `screenshot: "only-on-failure"` and `trace: "retain-on-failure"`; its official GitHub Actions example uploads the HTML report with `if: !cancelled()` and `retention-days: 30`. GitHub documents configurable artifact retention. These facts establish available mechanisms, not a universal default. A project can select failure-oriented and CI-accessible evidence when its acceptance, debugging, privacy, and audit needs justify it.
 
 The existing statement that this is an "industry overwhelming majority" and that GitHub usage is roughly `10:1` was not established by these primary sources. It should be removed rather than repeated as fact. Projects may retain successful visual evidence when the acceptance contract, audit requirement, or human review explicitly needs it.
 
@@ -56,7 +56,7 @@ Keep `/verify` as a thin verification orchestrator with five required outputs:
 4. **Review proof:** pinned Standards and Spec review, with unresolved findings stated separately.
 5. **Honest verdict:** fresh evidence, exact gaps, and no completion claim beyond the proven layer.
 
-Retain both local additions after correcting their conflict: automated failure evidence defaults to failure-oriented artifacts, while changed UI journeys are still walked and visually inspected. A required human-review screenshot is acceptance evidence, not debugging artifact noise.
+Retain both local additions after correcting their conflict: when automated artifacts are selected, failure-oriented modes are the recommended low-noise option; changed UI journeys are still walked and visually inspected. A required human-review screenshot is acceptance evidence, not debugging artifact noise.
 
 ## Out of scope
 
