@@ -62,7 +62,7 @@ Unrelated additional directories and hooks are preserved. Managed PostToolUse ho
 
 HTTP success, process existence, or a test count cannot prove a configuration/provider/data-path change unless the observation distinguishes the new path from the old one. Browser-facing work checks console, network, accessibility, visible state, focus/navigation, duplicate controls, and the actual next action.
 
-Failure-oriented Playwright trace/screenshot retention is the default when the project uses Playwright. Successful screenshots are retained only when an acceptance contract, audit requirement, or human visual review needs them. Unsupported prevalence claims are removed.
+Playwright trace/screenshot retention is selected from the project's acceptance, debugging, privacy, and audit needs. Failure-oriented retention is a supported recommendation, not a universal default inferred from popularity. Successful screenshots are retained when an acceptance contract, audit requirement, or human visual review needs them. Unsupported prevalence claims are removed.
 
 ## Recovery and integration
 

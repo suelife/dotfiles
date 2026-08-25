@@ -16,7 +16,7 @@
 
 ## 新電腦啟用
 
-1. 安裝 Git、Python、Dropbox 與 Claude Code，完成各產品登入。
+1. 安裝 Git、Python 3.11+、Dropbox 與 Claude Code，完成各產品登入。
 2. 等待 `00.claudedotfile` 完整同步。
 3. 在 repository 根目錄先預覽：
 

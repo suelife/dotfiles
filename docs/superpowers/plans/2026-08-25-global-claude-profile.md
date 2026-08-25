@@ -31,11 +31,11 @@
 - Consumes: accepted design and pinned primary GitHub sources.
 - Produces: public CLI and skill-document assertions used by later tasks.
 
-- [ ] Write CLI tests for explicit modes, dry-run immutability, backup, exact links, wrong links, settings preservation/removal, idempotence, rollback, and verify diagnostics.
-- [ ] Run the tests against the current bootstrap and confirm RED for the missing CLI contract.
-- [ ] Write skill contract tests for claim mapping, public seams, independent expectations, focused/full gates, runtime journey, outcome-sensitive proof, Standards/Spec review, evidence retention, and bounded verdicts.
-- [ ] Run the skill tests against the current portable skill and confirm the intended missing-contract failures.
-- [ ] Commit research and RED tests with `test(profile): define convergence contracts`.
+- [x] Write CLI tests for explicit modes, dry-run immutability, backup, exact links, wrong links, settings preservation/removal, idempotence, rollback, and verify diagnostics.
+- [x] Run the tests against the current bootstrap and confirm RED for the missing CLI contract.
+- [x] Write skill contract tests for claim mapping, public seams, independent expectations, focused/full gates, runtime journey, outcome-sensitive proof, Standards/Spec review, evidence retention, and bounded verdicts.
+- [x] Run the skill tests against the current portable skill and confirm the intended missing-contract failures.
+- [x] Commit research and RED tests with `test(profile): define convergence contracts` (`e634b6d`).
 
 ### Task 2: Implement the transactional bootstrap
 
@@ -47,12 +47,12 @@
 - Consumes: `--dry-run|--apply|--verify`, optional `--profile-root`, and optional `--home`.
 - Produces: exit `0` with `DRY_RUN_OK`, `APPLY_OK`, or `VERIFY_OK`; non-zero with path-specific diagnostics; `BACKUP_ROOT=<path|none>` on apply.
 
-- [ ] Implement argument parsing and declarative mappings until the explicit-mode/dry-run slice is GREEN.
-- [ ] Implement complete preflight and timestamped backup until regular/wrong-link slices are GREEN.
-- [ ] Implement settings ownership by stable path/command identity until preservation/removal slices are GREEN.
-- [ ] Implement rollback journal and exact read-back verification until failure/idempotence slices are GREEN.
-- [ ] Run the full bootstrap test file twice and hook self-tests.
-- [ ] Commit with `feat(profile): make bootstrap transactional`.
+- [x] Implement argument parsing and declarative mappings until the explicit-mode/dry-run slice is GREEN.
+- [x] Implement complete preflight and timestamped backup until regular/wrong-link slices are GREEN.
+- [x] Implement settings ownership by stable path/command identity until preservation/removal slices are GREEN.
+- [x] Implement rollback journal and exact read-back verification until failure/idempotence slices are GREEN.
+- [x] Run the full bootstrap test file twice and hook self-tests.
+- [x] Commit with `feat(profile): add transactional bootstrap` (`4e11005`); capability-preflight hardening is included in the final activation commit.
 
 ### Task 3: Integrate the researched verify skill
 
@@ -64,12 +64,12 @@
 - Consumes: a requested completion/deployment/readiness claim and the repository's spec, standards, commands, and runtime surfaces.
 - Produces: claim map, layered evidence, review findings, and an honest scoped verdict.
 
-- [ ] Merge the live user-journey rules into the portable source without dropping the existing failure-artifact policy.
-- [ ] Replace unsupported prevalence claims with pinned Playwright/GitHub facts and conditional evidence rules.
-- [ ] Add Matt-compatible public seam, independent expected value, vertical-slice, focused/full gate, and Standards/Spec review requirements.
-- [ ] Add outcome-sensitive configuration/data-path proof and explicit no-overclaim wording.
-- [ ] Run focused skill contract tests to GREEN and inspect the complete skill for duplicated workflows.
-- [ ] Commit with `docs(verify): integrate evidence-driven quality gates`.
+- [x] Merge the live user-journey rules into the portable source while making artifact retention conditional on the acceptance contract.
+- [x] Replace unsupported prevalence claims with pinned Playwright/GitHub facts and conditional evidence rules.
+- [x] Add Matt-compatible public seam, independent expected value, vertical-slice, focused/full gate, and Standards/Spec review requirements.
+- [x] Add outcome-sensitive configuration/data-path proof and explicit no-overclaim wording.
+- [x] Run focused skill contract tests to GREEN and inspect the complete skill for duplicated workflows.
+- [x] Commit with `feat(verify): integrate evidence-driven workflow` (`1cb933c`).
 
 ### Task 4: Reconcile inventories and generated drift
 
@@ -83,11 +83,11 @@
 - Consumes: the bootstrap manifest and current portable tree.
 - Produces: one inventory matching every managed link and explicit local-only boundaries.
 
-- [ ] Generate or validate the documented skills against the bootstrap manifest, including `notebooklm`.
-- [ ] Mark `agents/auto` local-only.
-- [ ] Ignore `.mypy_cache` and move the existing generated cache to the local apply backup rather than deleting it.
-- [ ] Record the superseded May global-profile decision without changing the dirty SecondBrain worktree in this branch.
-- [ ] Commit with `docs(profile): reconcile portable inventory`.
+- [x] Generate or validate the documented skills against the bootstrap manifest, including `notebooklm`.
+- [x] Confirm the managed/live agent inventory contains only `learn.md`; no `agents/auto` entry exists to migrate.
+- [x] Ignore `.mypy_cache` and move the existing generated cache to the local apply backup rather than deleting it.
+- [x] Record the superseded May global-profile decision without changing the dirty SecondBrain worktree in this branch.
+- [x] Commit the portable inventory and new-device guide with `docs(profile): document portable activation` (`626a7fc`).
 
 ### Task 5: Activate and verify the live profile
 
@@ -99,9 +99,9 @@
 - Consumes: tested branch worktree and current live profile.
 - Produces: exact portable links, narrowed live settings, and a recoverable backup root.
 
-- [ ] Run all Python tests, hook self-tests, compile checks, and `git diff --check`.
-- [ ] Run real `--dry-run` and inspect all actions.
-- [ ] Run real `--apply` once and record the backup root.
-- [ ] Run real `--verify`, compare unrelated settings before/after, and confirm the second apply is idempotent.
-- [ ] Run a fixed-point Standards and Spec review of the branch.
-- [ ] Commit final docs/report with `docs(profile): record verified activation` and leave integration/push to the explicit branch handoff.
+- [x] Run all Python tests, hook self-tests, compile checks, and `git diff --check`.
+- [x] Run real `--dry-run` and inspect all actions.
+- [x] Run real `--apply` once and record the backup root.
+- [x] Run real `--verify`, compare unrelated settings before/after, and confirm the second apply is idempotent.
+- [x] Run a fixed-point Standards and Spec review of the branch.
+- [x] Commit final docs/report with `docs(profile): record verified activation`; local integration is complete and remote push still requires separate approval.
