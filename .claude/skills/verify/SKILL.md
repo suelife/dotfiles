@@ -137,6 +137,25 @@ API 測試看的是值，看不出「人看到會怎麼想」。
 判準是「錯了誰會受害、多久才會發現」。使用者看得到的、資料改不回來的、
 外人讀得到的，一律往上一層。
 
+## 證據留存（2026-08-21 立；業界做法查證過一手來源才寫）
+
+**原則：失敗才留證據，通過的綠燈本身就是產出。** 這不是偷懶，是業界壓倒性
+主流（Playwright 官方建議；VS Code／Storybook／Grafana 的 config 實讀皆同；
+GitHub 全站 `only-on-failure` 對 `on` 約 10:1）。留一堆綠燈截圖不會讓人更信
+測試——讓人信的是「弄壞它會紅」，那是上面步驟 3 變異測試的工作。
+
+- **e2e config 預設**（每個有 Playwright 的專案都照這組設）：
+  ```ts
+  trace: "retain-on-failure",        // 失敗留 trace（含逐步畫面＋DOM 快照）
+  screenshot: "only-on-failure",     // 失敗另存一張 PNG，不開 viewer 也一眼可讀
+  ```
+- **證據的可及性比截圖與否重要**：報告只活在本機、下一輪就被覆蓋＝拿不出
+  第三方可查的佐證。要給人看的佐證，業界標準形式是 **CI 上傳 HTML 報告
+  artifact**（`if: !cancelled()`、retention 30 天），不是散裝截圖。
+- **視覺回歸 pixel baseline**（Percy／Chromatic／`toHaveScreenshot`）只在
+  「設計系統、多人共改元件」的專案划算；隨機測資與 pixel baseline 直接衝突。
+  單人主導的產品專案不預設做。
+
 ## 回報格式
 
 不要只給總數。每一項要能回答：**驗到第幾層、怎麼驗的、哪裡還沒驗**。

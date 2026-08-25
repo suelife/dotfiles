@@ -1,4 +1,9 @@
-# spec-kit + superpowers + bridge 安裝步驟
+# 〔已作廢 2026-08-14〕spec-kit + superpowers + bridge 安裝步驟
+
+> **spec-kit 已全面移除**（Wind 裁定；specify-cli 已 uninstall、pulse 的 .specify 與 speckit skills 已清）。
+> 本檔保留只因「⚠️ 兩個必踩的 Windows 雷」那一節是通用對策（cp950、Dropbox 鎖檔），其餘安裝步驟不要再照做。
+
+# ~~spec-kit + superpowers + bridge 安裝步驟~~
 
 WHAT 層用 GitHub **spec-kit**(spec→plan→tasks),HOW 層用 **superpowers**(TDD/subagent/review),
 中間用第三方 **speckit-superpowers-bridge** 串接(tasks.md 交棒給 superpowers 執行)。
